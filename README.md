@@ -1,203 +1,230 @@
-Portfolio Assignment 2 (M4)
-Green Patent Detection (PatentSBERTa)
+# 🚀 Portfolio Assignment 2 (M4)  
+## 🌱 Green Patent Detection with PatentSBERTa  
+### Active Learning + LLM → Human-in-the-Loop (HITL)
 
-Active Learning + LLM → Human HITL
+**Institution:** Aalborg University
+**Module:** Applied Deep Learning and Artificial Intelligence
+**Instructor:** Hamid B.  
+**Student:** Roger Braun  
+**published:** Monday, 16 February 2026  
 
-Course: Applied Deep Learning
-Module: M4
-Deadline: Monday 16 February 2026, 12:00
-Instructor: Hamid B.
-Student: Roger Braun
+---
 
-📌 Overview
+# 📌 Overview
 
-This assignment implements a complete green patent classification pipeline using PatentSBERTa.
+This project implements a complete green patent classification pipeline using PatentSBERTa and an Active Learning workflow.
 
-The workflow follows four sequential stages:
+The pipeline consists of four stages:
 
-Part A – Baseline Model (Frozen Embeddings)
+- 🧱 Part A — Baseline Model (Frozen Embeddings)  
+- 🎯 Part B — Uncertainty Sampling  
+- 🤝 Part C — LLM → Human-in-the-Loop (HITL)  
+- 🚀 Part D — Final Fine-Tuning  
 
-Part B – Uncertainty Sampling
+The objective is to improve label quality and classification performance using uncertainty-driven selection and gold supervision.
 
-Part C – LLM → Human-in-the-Loop (HITL)
+---
 
-Part D – Final Fine-Tuning
+# 🧱 Part A — Baseline Model (Frozen Embeddings)
 
-The objective is to improve label quality and classification performance through active learning and gold supervision.
+## 📖 Description
 
-🧱 Part A – Baseline Model (Frozen Embeddings)
-Description
-
-A fast baseline classifier is trained using frozen PatentSBERTa embeddings and Logistic Regression.
+A fast baseline classifier is trained using frozen PatentSBERTa embeddings and a Logistic Regression classifier.
 
 The encoder is frozen:
 
-Embeddings
-=
-𝑓
-PatentSBERTa
-(
-𝑥
-)
-Embeddings=f
-PatentSBERTa
-	​
+Embeddings = PatentSBERTa(x)
 
-(x)
+Only the classifier parameters are trained.
 
-Only the classifier is trained.
+---
 
-Dataset
+## 📊 Dataset
 
-Dataset: AI-Growth-Lab/patents_claims_1.5m_traim_test (50k balanced sample)
+- Source: AI-Growth-Lab/patents_claims_1.5m_traim_test  
+- Local file: patents_50k_green.parquet  
+- Balanced sample: 50,000 claims  
+  - 25,000 green (CPC Y02*)  
+  - 25,000 non-green  
 
-File: patents_50k_green.parquet
+### Splits
 
-Splits:
+- train_silver — 30,000  
+- eval_silver — 10,000  
+- pool_unlabeled — 10,000  
 
-train_silver (30,000)
+The dataset is approximately class-balanced (~50/50).
 
-eval_silver (10,000)
+---
 
-pool_unlabeled (10,000)
+## 🏷 Silver Label Definition
 
-The dataset is class-balanced (~50% green / ~50% non-green).
+Green label is derived from CPC Y02* codes:
 
-Silver Label
+```python
+is_green_silver = 1 if any(Y02) else 0
+```
 
-Green label derived from CPC Y02* codes:
+---
 
-is_green_silver = 1 if any Y02 code present
-Evaluation
+## 📈 Baseline Evaluation Metrics
 
-Metrics reported:
+- Precision  
+- Recall  
+- F1-score  
+- Accuracy  
 
-Precision
+Baseline performance:
 
-Recall
+**F1 ≈ 0.78**
 
-F1-score
+---
 
-Accuracy
+# 🎯 Part B — Identify High-Risk Examples (Uncertainty Sampling)
 
-Baseline performance ≈ 0.78 F1.
+## 📖 Definition
 
-🎯 Part B – Identify High-Risk Examples (Uncertainty Sampling)
-Definition
+Let:
+
+p = predicted probability that a claim is green
 
 Uncertainty score:
 
-𝑢
-=
-1
-−
-2
-∣
-𝑝
-−
-0.5
-∣
-u=1−2∣p−0.5∣
+u = 1 - 2 * abs(p - 0.5)
 
 Where:
 
-p = predicted probability of green
+- u = 1 → most uncertain (p = 0.5)  
+- u ≈ 0 → confident prediction  
 
-High-risk examples are those with highest u.
+---
 
-Procedure
+## 🔍 Procedure
 
-Compute probabilities for all pool_unlabeled samples
+1. Compute p_green for all samples in pool_unlabeled  
+2. Compute uncertainty score u  
+3. Select the top 100 highest-u examples  
+4. Export to:
 
-Compute uncertainty
-
-Select top 100
-
-Export to:
-
+```
 outputs/hitl_review_ready.tsv
+```
 
-Exported fields:
+---
 
-doc_id
+## 📁 Exported Fields
 
-text
+- doc_id  
+- text  
+- p_green  
+- u  
+- llm_green_suggested  
+- llm_confidence  
+- llm_rationale  
+- is_green_human  
 
-p_green
+Selection is based only on model uncertainty.
 
-u
+---
 
-llm_green_suggested
+# 🤝 Part C — LLM → Human-in-the-Loop (HITL)
 
-llm_confidence
-
-llm_rationale
-
-is_green_human
-
-No CPC or metadata used for selection.
-
-🤝 Part C – LLM → Human HITL
-Workflow
+## 📖 Workflow
 
 For each of the 100 uncertain samples:
 
-LLM evaluates claim text only
+### 🔹 LLM Evaluation
 
-Outputs:
+Given only the claim text:
 
-llm_green_suggested (0/1)
+- llm_green_suggested (0/1)  
+- llm_confidence (low/medium/high)  
+- llm_rationale (1–3 sentences citing the claim)
 
-llm_confidence (low/medium/high)
+### 🔹 Human Review (Final Label)
 
-llm_rationale (1–3 sentences)
+The human reviewer assigns:
 
-Human assigns final label:
+- is_green_human (0/1)
 
-is_green_human (0/1)
+The human decision overrides the LLM suggestion.
 
-Gold labels override silver labels.
+---
 
-Gold Merge Rule
-is_green_gold = human label if available
-otherwise = silver label
-🚀 Part D – Final Model (Fine-Tune PatentSBERTa Once)
+## 🥇 Gold Label Merge Rule
+
+is_green_gold = human_label if reviewed else silver_label
+
+This produces a gold-enhanced training dataset.
+
+---
+
+# 🚀 Part D — Final Model (Fine-Tune PatentSBERTa Once)
 
 PatentSBERTa is fine-tuned end-to-end using:
 
-train_silver + gold_100
+- train_silver + gold_100  
+- Binary classification  
 
-Binary classification
+---
 
-Hyperparameters
+## ⚙️ Hyperparameters
 
-max_seq_length = 256
+- max_seq_length = 256  
+- learning_rate = 2e-5  
+- batch_size = 16  
+- epochs = 1  
+- weight_decay = 0.01  
 
-learning_rate = 2e-5
+---
 
-batch_size = 16
+## 📊 Evaluation
 
-epochs = 1
+Performance is reported on:
 
-weight_decay = 0.01
+- eval_silver  
+- gold_100  
 
-Evaluation performed on:
+Metrics:
 
-eval_silver
+- Accuracy  
+- Precision  
+- Recall  
+- F1-score  
 
-gold_100
+---
 
-▶️ How to Run
-Local
+# ▶️ How to Run
+
+## 💻 Local
+
+```bash
 python assignment02_m4.py
-SLURM
+```
+
+## 🖥 SLURM
+
+```bash
 sbatch assignment02_m4.sh
-📦 Deliverables
+```
 
-Fine-tuned model uploaded to Hugging Face Hub
+---
 
-Gold-enhanced dataset uploaded to Hugging Face Hub
+# 📦 Deliverables
 
-Video demonstration
+- Fine-tuned model uploaded to Hugging Face Hub  
+- Gold-enhanced dataset uploaded to Hugging Face Hub  
+- Video demonstration  
+- Email sent to instructor with links  
 
-Email sent to instructor with links
+---
+
+# 🧠 Key Learning Contributions
+
+This assignment demonstrates:
+
+- Transfer learning with frozen embeddings  
+- Uncertainty-based Active Learning  
+- LLM-assisted labeling  
+- Human supervision integration  
+- End-to-end transformer fine-tuning  
