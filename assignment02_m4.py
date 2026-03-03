@@ -242,7 +242,7 @@ print("👉 Save as outputs/hitl_reviewed.csv")
 # STOP IF HITL NOT DONE
 # ==========================================
 
-hitl_reviewed_path = os.path.join(OUTPUT_DIR, "hitl_reviewed.csv")
+hitl_reviewed_path = os.path.join(BASE_DIR, "hitl_reviewed.csv")
 
 if not os.path.exists(hitl_reviewed_path):
     warning("hitl_reviewed.csv not found.")
@@ -352,6 +352,10 @@ trainer = Trainer(
 )
 
 trainer.train()
+
+trainer.save_model(os.path.join(MODEL_DIR, "patentsberta_final"))
+tokenizer.save_pretrained(os.path.join(MODEL_DIR, "patentsberta_final"))
+print("\n📊 Model and tokenizer saved to models/patentsberta_final")
 
 print("\n📊 Evaluation on eval_silver")
 print(trainer.evaluate())
